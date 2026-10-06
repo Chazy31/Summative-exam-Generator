@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summative Exam & Table of Specifications (TOS) Generator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- Google Fonts Inter & Merriweather -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Merriweather', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-size: 10pt !important;
+            }
+            .print-page {
+                box-shadow: none !important;
+                margin: 0 !important;
+                width: 100% !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+            .page-break {
+                page-break-before: always;
+                break-before: page;
+            }
+            .avoid-break {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+        }
+
+        .paper-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        [v-cloak] {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased min-h-screen">
+    <div id="app" v-cloak>
+        
+        <!-- Top Navigation Bar -->
+        <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-50 no-print">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-brand-600 p-2.5 rounded-xl shadow-md text-white">
+                            <i class="fa-solid fa-file-signature text-xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="font-bold text-lg leading-tight">ExamCraft TOS Studio</h1>
+                            <p class="text-xs text-slate-400">Summative Test & TOS Matrix Generator</p>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Tabs -->
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        <button @click="activeTab = 'setup'" 
+                                :class="['px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all flex items-center gap-2', activeTab === 'setup' ? 'bg-brand-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span class="hidden md:inline">1. Setup & Data</span>
+                        </button>
+                        
+                        <button @click="activeTab = 'tos'" 
+                                :class="['px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all flex items-center gap-2', activeTab === 'tos' ? 'bg-brand-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+                            <i class="fa-solid fa-table-cells"></i>
+                            <span class="hidden md:inline">2. TOS Matrix</span>
+                            <span v-if="competencies.length > 0" class="bg-slate-700 text-xs px-2 py-0.5 rounded-full font-mono">{{ competencies.length }}</span>
+                        </button>
+
+                        <button @click="activeTab = 'exam'" 
+                                :class="['px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all flex items-center gap-2', activeTab === 'exam' ? 'bg-brand-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+                            <i class="fa-solid fa-file-pen"></i>
+                            <span class="hidden md:inline">3. Test Paper</span>
+                            <span v-if="generatedQuestions.length > 0" class="bg-emerald-600 text-xs px-2 py-0.5 rounded-full text-white">{{ generatedQuestions.length }} Qs</span>
+                        </button>
+
+                        <button @click="activeTab = 'key'" 
+                                :class="['px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all flex items-center gap-2', activeTab === 'key' ? 'bg-brand-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-800']">
+                            <i class="fa-solid fa-key"></i>
+                            <span class="hidden md:inline">4. Answer Key</span>
+                        </button>
+
+                        <div class="h-6 w-px bg-slate-700 mx-1"></div>
+
+                        <button @click="triggerPrint" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold shadow flex items-center gap-2 transition-all">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Print</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+            <!-- TAB 1: SETUP & COMPETENCY INPUT -->
+            <div v-show="activeTab === 'setup'" class="space-y-6">
+                
+                <!-- Toast Alert Banner -->
+                <div v-if="toastMessage" class="bg-blue-50 border-l-4 border-brand-600 p-4 rounded-r-lg shadow-sm flex items-center justify-between transition-all">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-circle-info text-brand-600 text-lg"></i>
+                        <p class="text-sm text-slate-700">{{ toastMessage }}</p>
+                    </div>
+                    <button @click="toastMessage = ''" class="text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Exam Metadata Header Card -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-lg">
+                                <i class="fa-solid fa-school"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-800">Exam Header & General Parameters</h2>
+                                <p class="text-xs text-slate-500">Configure parameters for any subject, language, and question counts</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">School Name</label>
+                            <input v-model="config.schoolName" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" placeholder="e.g. San Juan High School">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Subject / Learning Area</label>
+                            <input v-model="config.subject" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" placeholder="e.g. Science, Mathematics, AP, English">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Grade Level</label>
+                            <input v-model="config.gradeLevel" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" placeholder="e.g. Grade 10">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Grading Period / Quarter</label>
+                            <input v-model="config.quarter" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" placeholder="e.g. 1st Quarter Summative Test">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Teacher / Designer Name</label>
+                            <input v-model="config.teacherName" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" placeholder="e.g. Maria Clara Santos, LPT">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Exam Language / Medium</label>
+                            <select v-model="config.language" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all">
+                                <option value="English">English</option>
+                                <option value="Filipino / Tagalog">Filipino / Tagalog</option>
+                                <option value="Bilingual (English & Filipino)">Bilingual (English & Filipino)</option>
+                                <option value="Spanish">Spanish</option>
+                                <option value="Regional / Mother Tongue">Regional / Mother Tongue</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Target Total Items ($N$)</label>
+                            <select v-model.number="config.targetItems" @change="syncFormatItemCounts" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all">
+                                <option :value="10">10 Items</option>
+                                <option :value="20">20 Items</option>
+                                <option :value="30">30 Items</option>
+                                <option :value="40">40 Items</option>
+                                <option :value="50">50 Items</option>
+                                <option :value="60">60 Items</option>
+                                <option :value="100">100 Items</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Cognitive Levels Distribution</label>
+                            <div class="grid grid-cols-3 gap-1">
+                                <div class="bg-emerald-50 border border-emerald-200 p-1.5 rounded text-center">
+                                    <span class="block text-[10px] text-emerald-700 font-bold">Easy</span>
+                                    <input v-model.number="config.easyPct" type="number" class="w-full bg-transparent text-center font-bold text-xs text-emerald-800 outline-none" min="0" max="100">%
+                                </div>
+                                <div class="bg-amber-50 border border-amber-200 p-1.5 rounded text-center">
+                                    <span class="block text-[10px] text-amber-700 font-bold">Avg</span>
+                                    <input v-model.number="config.avgPct" type="number" class="w-full bg-transparent text-center font-bold text-xs text-amber-800 outline-none" min="0" max="100">%
+                                </div>
+                                <div class="bg-rose-50 border border-rose-200 p-1.5 rounded text-center">
+                                    <span class="block text-[10px] text-rose-700 font-bold">Diff</span>
+                                    <input v-model.number="config.diffPct" type="number" class="w-full bg-transparent text-center font-bold text-xs text-rose-800 outline-none" min="0" max="100">%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Format Item Counts Breakdown Card -->
+                    <div class="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                <i class="fa-solid fa-list-check text-brand-600 mr-1.5"></i> Question Formats Breakdown Allocation
+                            </label>
+                            <span :class="['text-xs font-bold font-mono px-2.5 py-0.5 rounded-full', totalFormatItems === config.targetItems ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800']">
+                                Total: {{ totalFormatItems }} / {{ config.targetItems }} Items {{ totalFormatItems === config.targetItems ? '✓ Balanced' : '⚠️ Misaligned' }}
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <span class="block text-xs font-bold text-slate-700">Multiple Choice (MCQ)</span>
+                                    <span class="text-[10px] text-slate-400">4-Option standard</span>
+                                </div>
+                                <input v-model.number="config.mcqCount" type="number" min="0" :max="config.targetItems" class="w-16 px-2 py-1.5 rounded border border-slate-300 font-bold text-center text-sm text-brand-700 focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+
+                            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <span class="block text-xs font-bold text-slate-700">True or False</span>
+                                    <span class="text-[10px] text-slate-400">Binary verification</span>
+                                </div>
+                                <input v-model.number="config.tfCount" type="number" min="0" :max="config.targetItems" class="w-16 px-2 py-1.5 rounded border border-slate-300 font-bold text-center text-sm text-brand-700 focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+
+                            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <span class="block text-xs font-bold text-slate-700">Identification</span>
+                                    <span class="text-[10px] text-slate-400">Concept / term recall</span>
+                                </div>
+                                <input v-model.number="config.identCount" type="number" min="0" :max="config.targetItems" class="w-16 px-2 py-1.5 rounded border border-slate-300 font-bold text-center text-sm text-brand-700 focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Special Pedagogical Instructions -->
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">
+                            <i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> Special Instructions & Pedagogical Style
+                        </label>
+                        <textarea v-model="config.specialInstructions" rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all resize-none" placeholder="e.g., Focus on real-world applications, local community context, word problems, or daily life scenarios."></textarea>
+                    </div>
+                </div>
+
+                <!-- Competencies Table Input Card -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800">Learning Competencies & Teaching Days</h2>
+                            <p class="text-xs text-slate-500">Provide competencies and days taught ($d_i$). Item allocations are calculated via Hamilton's method.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button @click="addCompetencyRow" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-2 transition-all">
+                                <i class="fa-solid fa-plus"></i> Add Competency
+                            </button>
+                            <button @click="clearCompetencies" class="bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 px-3 py-2 rounded-xl text-xs font-semibold transition-all">
+                                <i class="fa-solid fa-trash-can"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider">
+                                    <th class="py-3 px-4 font-bold w-12 text-center">#</th>
+                                    <th class="py-3 px-4 font-bold">Learning Competency Description</th>
+                                    <th class="py-3 px-4 font-bold w-36 text-center">Days Taught ($d_i$)</th>
+                                    <th class="py-3 px-4 font-bold w-32 text-center">Weight ($W_i$)</th>
+                                    <th class="py-3 px-4 font-bold w-28 text-center">Target Items</th>
+                                    <th class="py-3 px-4 font-bold w-16 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="(comp, index) in competencies" :key="comp.id" class="hover:bg-slate-50/80 transition-colors">
+                                    <td class="py-3 px-4 text-center font-bold text-slate-400">{{ index + 1 }}</td>
+                                    <td class="py-3 px-4">
+                                        <textarea v-model="comp.description" rows="2" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none resize-none transition-all" placeholder="Enter learning competency statement..."></textarea>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <div class="flex items-center justify-center">
+                                            <input v-model.number="comp.days" type="number" min="1" max="60" class="w-20 text-center px-2 py-1.5 rounded-lg border border-slate-300 font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-none">
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <span class="inline-block px-2.5 py-1 rounded-full bg-slate-100 font-mono font-bold text-xs text-slate-700">
+                                            {{ getCompetencyWeight(comp.days) }}%
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-4 text-center font-bold text-brand-600 font-mono">
+                                        {{ getCompetencyItemAlloc(index) }} items
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button @click="removeCompetencyRow(index)" class="text-slate-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 transition-all">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="competencies.length === 0">
+                                    <td colspan="6" class="py-12 text-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                                        <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+                                        <p class="font-medium text-sm">No learning competencies added yet.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot v-if="competencies.length > 0" class="bg-slate-50/90 font-bold text-slate-700 border-t-2 border-slate-200">
+                                <tr>
+                                    <td colspan="2" class="py-3 px-4 text-right">TOTALS:</td>
+                                    <td class="py-3 px-4 text-center font-mono text-brand-700">{{ totalTeachingDays }} Days</td>
+                                    <td class="py-3 px-4 text-center font-mono">100.00%</td>
+                                    <td class="py-3 px-4 text-center font-mono text-emerald-600">{{ config.targetItems }} Items</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button @click="activeTab = 'tos'" class="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow flex items-center gap-2 transition-all">
+                            Proceed to TOS Matrix <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: AUTOMATED TOS MATRIX -->
+            <div v-show="activeTab === 'tos'" class="space-y-6">
+                
+                <!-- Action Controls Bar -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Table of Specifications (TOS)</h2>
+                        <p class="text-xs text-slate-500">Calculated with Cognitive Levels and Question Format breakdown columns (MCQ, True/False, Identification).</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-3">
+                        <button @click="downloadTOSCSV" :disabled="competencies.length === 0" class="bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow flex items-center gap-2 transition-all">
+                            <i class="fa-solid fa-file-csv text-emerald-400"></i> Download TOS (CSV)
+                        </button>
+                        <button @click="activeTab = 'setup'" class="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit Inputs
+                        </button>
+                        <button @click="generateExamWithAI" :disabled="isGenerating || competencies.length === 0" class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-semibold text-xs shadow flex items-center gap-2 transition-all">
+                            <i v-if="!isGenerating" class="fa-solid fa-wand-magic-sparkles"></i>
+                            <i v-else class="fa-solid fa-spinner fa-spin"></i>
+                            <span>{{ isGenerating ? 'Generating Items...' : 'Generate Test Items with AI' }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TOS Calculation Table Page -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-page">
+                    <!-- Print Document Header -->
+                    <div class="hidden print:block p-6 text-center border-b border-slate-300">
+                        <h2 class="text-lg font-bold uppercase tracking-wide">{{ config.schoolName || 'Republic of the Philippines - Department of Education' }}</h2>
+                        <h1 class="text-xl font-black mt-1">TABLE OF SPECIFICATIONS (TOS)</h1>
+                        <p class="text-xs text-slate-600 mt-1">
+                            <strong>Subject:</strong> {{ config.subject }} | <strong>Grade:</strong> {{ config.gradeLevel }} | <strong>Quarter:</strong> {{ config.quarter }} | <strong>Language:</strong> {{ config.language }} | <strong>Teacher:</strong> {{ config.teacherName }}
+                        </p>
+                    </div>
+
+                    <div class="overflow-x-auto p-6">
+                        <table class="w-full text-left text-xs sm:text-sm border-collapse border border-slate-300">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700">
+                                    <th class="border border-slate-300 p-2 text-center font-bold" rowspan="2">#</th>
+                                    <th class="border border-slate-300 p-2 font-bold" rowspan="2">Learning Competency</th>
+                                    <th class="border border-slate-300 p-2 text-center font-bold" rowspan="2">Days Taught ($d_i$)</th>
+                                    <th class="border border-slate-300 p-2 text-center font-bold" rowspan="2">Weight ($W_i$)</th>
+                                    <th class="border border-slate-300 p-2 text-center font-bold" rowspan="2">Total Items ($n_i$)</th>
+                                    <th class="border border-slate-300 p-1.5 text-center font-bold bg-blue-50/70 text-blue-900" colspan="3">Cognitive Levels Breakdown</th>
+                                    <th class="border border-slate-300 p-1.5 text-center font-bold bg-purple-50/70 text-purple-900" colspan="3">Question Format Breakdown</th>
+                                    <th class="border border-slate-300 p-2 text-center font-bold" rowspan="2">Item Placement</th>
+                                </tr>
+                                <tr class="bg-slate-50 text-slate-600 text-[11px]">
+                                    <th class="border border-slate-300 p-1.5 text-center bg-emerald-50/50">Easy ({{ config.easyPct }}%)</th>
+                                    <th class="border border-slate-300 p-1.5 text-center bg-amber-50/50">Avg ({{ config.avgPct }}%)</th>
+                                    <th class="border border-slate-300 p-1.5 text-center bg-rose-50/50">Diff ({{ config.diffPct }}%)</th>
+                                    <th class="border border-slate-300 p-1.5 text-center bg-purple-50/30 text-purple-900 font-bold">MCQ</th>
+                                    <th class="border border-slate-300 p-1.5 text-center bg-purple-50/30 text-purple-900 font-bold">True/False</th>
+                                    <th class="border border-slate-300 p-1.5 text-center bg-purple-50/30 text-purple-900 font-bold">Identification</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(row, idx) in calculatedMatrix" :key="idx" class="hover:bg-slate-50/80">
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-slate-500">{{ idx + 1 }}</td>
+                                    <td class="border border-slate-300 p-2.5 font-medium text-slate-800">{{ row.description }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono">{{ row.days }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono">{{ row.weightPct }}%</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold font-mono text-brand-600 bg-brand-50/30">{{ row.allocatedItems }}</td>
+                                    
+                                    <!-- Cognitive Levels Columns -->
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-emerald-700 bg-emerald-50/20">{{ row.easyItems }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-amber-700 bg-amber-50/20">{{ row.avgItems }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-rose-700 bg-rose-50/20">{{ row.diffItems }}</td>
+                                    
+                                    <!-- Question Format Breakdown Columns -->
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-purple-800 bg-purple-50/20 font-mono">{{ row.mcqItems }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-purple-800 bg-purple-50/20 font-mono">{{ row.tfItems }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-purple-800 bg-purple-50/20 font-mono">{{ row.identItems }}</td>
+
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-xs font-semibold text-slate-600">{{ row.itemRange }}</td>
+                                </tr>
+                                <tr v-if="calculatedMatrix.length === 0">
+                                    <td colspan="12" class="p-8 text-center text-slate-400">Please enter competencies in Setup to generate TOS matrix.</td>
+                                </tr>
+                            </tbody>
+                            <tfoot class="bg-slate-100 font-bold text-slate-800">
+                                <tr>
+                                    <td class="border border-slate-300 p-2.5 text-center" colspan="2">TOTAL:</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono">{{ totalTeachingDays }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono">100.00%</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-brand-700 text-base">{{ totalAllocatedItems }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-emerald-700">{{ matrixTotals.easy }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-amber-700">{{ matrixTotals.avg }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-rose-700">{{ matrixTotals.diff }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-purple-800">{{ matrixTotals.mcq }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-purple-800">{{ matrixTotals.tf }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-purple-800">{{ matrixTotals.ident }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-mono text-xs">Items 1 – {{ totalAllocatedItems }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Signatures Block for Printed TOS -->
+                    <div class="hidden print:grid grid-cols-2 gap-12 p-8 pt-12 text-xs">
+                        <div>
+                            <p class="font-semibold text-slate-600">Prepared by:</p>
+                            <div class="mt-12 border-t border-slate-400 pt-1 text-slate-800">
+                                <p class="font-bold uppercase">{{ config.teacherName || 'Teacher' }}</p>
+                                <p class="text-slate-500">Subject Teacher</p>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-600">Approved by:</p>
+                            <div class="mt-12 border-t border-slate-400 pt-1 text-slate-800">
+                                <p class="font-bold uppercase">School Principal / Academic Head</p>
+                                <p class="text-slate-500">Head Teacher / Administrator</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: STUDENT TEST PAPER PREVIEW -->
+            <div v-show="activeTab === 'exam'" class="space-y-6">
+                
+                <!-- Action Controls Bar -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Student Test Paper</h2>
+                        <p class="text-xs text-slate-500">Divided into sections based on your specified format counts (MCQ, True/False, Identification).</p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button @click="generateExamWithAI" :disabled="isGenerating" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow flex items-center gap-2">
+                            <i class="fa-solid fa-rotate"></i> Regenerate Exam
+                        </button>
+                        <button @click="triggerPrint" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow flex items-center gap-2">
+                            <i class="fa-solid fa-print"></i> Print Exam Paper
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Single Item Revision Box -->
+                <div v-if="generatedQuestions.length > 0" class="bg-slate-900 text-white rounded-2xl p-5 shadow-lg border border-slate-800 no-print transition-all">
+                    <div class="flex items-center justify-between mb-3 pb-3 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+                                <i class="fa-solid fa-pen-ruler"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-white">Revise or Modify Specific Question</h3>
+                                <p class="text-xs text-slate-400">Select an item number and type custom feedback for AI revision.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                        <div class="md:col-span-3">
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Question Number</label>
+                            <select v-model.number="revisionItemNum" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-amber-300 focus:ring-2 focus:ring-brand-500 outline-none">
+                                <option v-for="(q, idx) in generatedQuestions" :key="idx" :value="idx + 1">
+                                    Question #{{ idx + 1 }} ({{ q.formatLabel || q.type }})
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="md:col-span-6">
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Revision Prompt / Style Instruction</label>
+                            <input v-model="revisionInstruction" type="text" @keyup.enter="reviseSingleQuestion()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:ring-2 focus:ring-brand-500 outline-none" placeholder="e.g., Change to a store purchase story, or clarify Option C...">
+                        </div>
+
+                        <div class="md:col-span-3">
+                            <button @click="reviseSingleQuestion()" :disabled="isRevisingItem || generatedQuestions.length === 0" class="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs shadow flex items-center justify-center gap-2 transition-all">
+                                <i v-if="!isRevisingItem" class="fa-solid fa-wand-magic-sparkles"></i>
+                                <i v-else class="fa-solid fa-spinner fa-spin"></i>
+                                <span>{{ isRevisingItem ? 'Revising...' : 'Revise Item' }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Printable Test Paper View -->
+                <div class="bg-white rounded-2xl p-8 sm:p-12 shadow-sm border border-slate-200 print-page max-w-4xl mx-auto font-serif">
+                    
+                    <!-- Official Header -->
+                    <div class="text-center border-b-2 border-slate-900 pb-4 mb-6">
+                        <p class="text-xs uppercase font-bold tracking-widest text-slate-600 font-sans">{{ config.schoolName || 'Republic of the Philippines • Department of Education' }}</p>
+                        <h1 class="text-2xl font-black uppercase text-slate-900 mt-1 font-sans">{{ config.quarter || 'SUMMATIVE EXAMINATION' }}</h1>
+                        <p class="text-sm font-semibold text-slate-700 mt-0.5 font-sans">{{ config.subject }} — {{ config.gradeLevel }} ({{ config.language }})</p>
+                    </div>
+
+                    <!-- Student Info Block -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-y-3 gap-x-6 text-xs sm:text-sm font-sans mb-8 border-b border-slate-200 pb-6">
+                        <div>
+                            <span class="font-bold text-slate-700">Name:</span>
+                            <span class="inline-block border-b border-slate-400 w-40 sm:w-48 ml-1"></span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-700">Grade & Section:</span>
+                            <span class="inline-block border-b border-slate-400 w-28 ml-1"></span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-700">Date:</span>
+                            <span class="inline-block border-b border-slate-400 w-28 ml-1"></span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-700">Teacher:</span>
+                            <span class="font-semibold text-slate-800 ml-1">{{ config.teacherName || '________________' }}</span>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-700">Score:</span>
+                            <span class="inline-block border-b border-slate-400 w-20 ml-1"></span>
+                            <span class="font-bold">/ {{ generatedQuestions.length || config.targetItems }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Test Sections List -->
+                    <div class="space-y-8">
+                        <div v-for="(section, sIdx) in testSections" :key="sIdx" class="space-y-4">
+                            
+                            <!-- Section Title & Instructions -->
+                            <div class="bg-slate-100 p-3 rounded-lg border-l-4 border-slate-800 font-sans">
+                                <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wide">{{ section.title }}</h3>
+                                <p class="text-xs text-slate-700 mt-0.5">{{ section.instruction }}</p>
+                            </div>
+
+                            <!-- Section Question Items -->
+                            <div class="space-y-5 pl-1">
+                                <div v-for="q in section.items" :key="q.itemNum" class="avoid-break text-sm relative group">
+                                    <div class="flex items-start gap-2">
+                                        <span class="font-bold text-slate-900 font-sans w-6 text-right shrink-0">{{ q.itemNum }}.</span>
+                                        <div class="flex-1">
+                                            
+                                            <!-- Question Text -->
+                                            <div class="flex items-start justify-between gap-2">
+                                                <p class="font-medium text-slate-900 leading-relaxed font-sans mb-1.5">
+                                                    {{ q.question }}
+                                                </p>
+                                                <button @click="quickSelectForRevision(q.itemNum)" class="no-print opacity-0 group-hover:opacity-100 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[11px] font-sans font-semibold px-2 py-0.5 rounded flex items-center gap-1 transition-all">
+                                                    <i class="fa-solid fa-pen-ruler"></i> Revise
+                                                </button>
+                                            </div>
+
+                                            <!-- MCQ Options Grid -->
+                                            <div v-if="q.format === 'mcq' && q.options && q.options.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4 pl-2 font-sans text-xs sm:text-sm text-slate-800">
+                                                <div v-for="(opt, oIdx) in q.options" :key="oIdx" class="flex items-center gap-2">
+                                                    <span>{{ opt }}</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- True or False Options -->
+                                            <div v-else-if="q.format === 'tf'" class="pl-2 font-sans text-xs font-semibold text-slate-700 flex gap-6 mt-1">
+                                                <span>( &nbsp; ) TRUE</span>
+                                                <span>( &nbsp; ) FALSE</span>
+                                            </div>
+
+                                            <!-- Identification Line -->
+                                            <div v-else-if="q.format === 'ident'" class="mt-2 pl-2 font-sans text-xs">
+                                                <span class="text-slate-500 mr-2">Answer:</span>
+                                                <span class="inline-block border-b-2 border-slate-500 w-64"></span>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Empty state -->
+                        <div v-if="generatedQuestions.length === 0" class="text-center py-16 text-slate-400 font-sans no-print">
+                            <i class="fa-solid fa-wand-magic-sparkles text-4xl mb-3 block text-slate-300"></i>
+                            <p class="font-bold text-slate-600">No test items generated yet.</p>
+                            <p class="text-xs">Go to the <strong>TOS Matrix</strong> tab and click "Generate Test Items with AI".</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: TEACHER'S ANSWER KEY -->
+            <div v-show="activeTab === 'key'" class="space-y-6">
+                
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center justify-between no-print">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Teacher's Answer Key & Rationales</h2>
+                        <p class="text-xs text-slate-500">Provides correct keys, cognitive levels, and formats for all generated test items.</p>
+                    </div>
+                    <button @click="triggerPrint" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow flex items-center gap-2">
+                        <i class="fa-solid fa-print"></i> Print Answer Key
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 print-page">
+                    <div class="text-center border-b pb-4 mb-6">
+                        <h2 class="text-lg font-bold text-slate-900">{{ config.schoolName }}</h2>
+                        <h1 class="text-xl font-black uppercase text-brand-700">{{ config.subject }} — OFFICIAL ANSWER KEY MATRIX</h1>
+                        <p class="text-xs text-slate-500">{{ config.quarter }} | Teacher: {{ config.teacherName }}</p>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs sm:text-sm text-left border-collapse border border-slate-300">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700">
+                                    <th class="border border-slate-300 p-2 text-center font-bold w-12">Item</th>
+                                    <th class="border border-slate-300 p-2 text-center font-bold w-28">Format</th>
+                                    <th class="border border-slate-300 p-2 font-bold">Target Competency</th>
+                                    <th class="border border-slate-300 p-2 text-center font-bold w-24">Cognitive</th>
+                                    <th class="border border-slate-300 p-2 text-center font-bold w-24">Key</th>
+                                    <th class="border border-slate-300 p-2 font-bold">Pedagogical Rationale</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(q, idx) in generatedQuestions" :key="idx" class="hover:bg-slate-50">
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-slate-800">{{ q.itemNum || (idx + 1) }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-bold text-purple-900 uppercase text-[10px] bg-purple-50/30">
+                                        {{ q.formatLabel || q.format }}
+                                    </td>
+                                    <td class="border border-slate-300 p-2.5 text-slate-600 text-xs">{{ q.competency }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-medium">
+                                        <span :class="[
+                                            'px-2 py-0.5 rounded text-[10px] font-bold uppercase',
+                                            q.cognitiveLevel === 'Easy' ? 'bg-emerald-100 text-emerald-800' :
+                                            q.cognitiveLevel === 'Average' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                                        ]">
+                                            {{ q.cognitiveLevel }}
+                                        </span>
+                                    </td>
+                                    <td class="border border-slate-300 p-2.5 text-center font-black text-brand-700 text-sm font-mono">{{ q.correctAnswer }}</td>
+                                    <td class="border border-slate-300 p-2.5 text-slate-700 text-xs leading-relaxed">{{ q.explanation }}</td>
+                                </tr>
+                                <tr v-if="generatedQuestions.length === 0">
+                                    <td colspan="6" class="p-8 text-center text-slate-400">Generate exam items first to populate answer key matrix.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    activeTab: 'setup',
+                    toastMessage: '',
+                    isGenerating: false,
+                    isRevisingItem: false,
+                    revisionItemNum: 1,
+                    revisionInstruction: '',
+                    apiKey: '',
+                    
+                    config: {
+                        schoolName: '',
+                        subject: '',
+                        gradeLevel: '',
+                        quarter: '1st Quarter Summative Exam',
+                        teacherName: '',
+                        targetItems: 30,
+                        mcqCount: 20,
+                        tfCount: 5,
+                        identCount: 5,
+                        language: 'English',
+                        easyPct: 60,
+                        avgPct: 30,
+                        diffPct: 10,
+                        specialInstructions: 'Focus on real-world applications and practical scenarios.'
+                    },
+
+                    competencies: [
+                        { id: 1, description: 'Analyze fundamental principles and real-world application of the subject matter', days: 5 },
+                        { id: 2, description: 'Apply concepts and problem-solving techniques to daily scenarios', days: 3 }
+                    ],
+
+                    generatedQuestions: []
+                };
+            },
+
+            computed: {
+                totalTeachingDays() {
+                    return this.competencies.reduce((sum, c) => sum + (Number(c.days) || 0), 0);
+                },
+
+                totalFormatItems() {
+                    return (Number(this.config.mcqCount) || 0) + (Number(this.config.tfCount) || 0) + (Number(this.config.identCount) || 0);
+                },
+
+                // Calculates TOS Matrix using Hamilton's Largest Remainder Method + Item Format distribution
+                calculatedMatrix() {
+                    const totalDays = this.totalTeachingDays;
+                    const N = this.config.targetItems;
+
+                    if (totalDays === 0 || this.competencies.length === 0) return [];
+
+                    // Step 1: Compute quotas for item allocation per competency
+                    const exactAllocations = this.competencies.map(c => {
+                        const days = Number(c.days) || 0;
+                        const weight = days / totalDays;
+                        const quota = weight * N;
+                        const floor = Math.floor(quota);
+                        const remainder = quota - floor;
+                        return {
+                            id: c.id,
+                            description: c.description,
+                            days: days,
+                            weightPct: (weight * 100).toFixed(2),
+                            quota: quota,
+                            floor: floor,
+                            remainder: remainder
+                        };
+                    });
+
+                    // Step 2: Sum floors and resolve deficit using largest remainders
+                    const allocatedSum = exactAllocations.reduce((sum, a) => sum + a.floor, 0);
+                    let deficit = N - allocatedSum;
+
+                    const sortedIndices = exactAllocations
+                        .map((a, idx) => ({ idx, remainder: a.remainder }))
+                        .sort((a, b) => b.remainder - a.remainder);
+
+                    const finalCounts = exactAllocations.map(a => a.floor);
+                    for (let i = 0; i < deficit; i++) {
+                        if (sortedIndices[i]) {
+                            finalCounts[sortedIndices[i].idx] += 1;
+                        }
+                    }
+
+                    // Step 3: Compute Item Placement Ranges and Question Format Item Counts
+                    const mcqLimit = Number(this.config.mcqCount) || 0;
+                    const tfLimit = mcqLimit + (Number(this.config.tfCount) || 0);
+
+                    let currentPlacementIndex = 1;
+
+                    return exactAllocations.map((a, idx) => {
+                        const items = finalCounts[idx];
+                        
+                        // Cognitive Splits
+                        const easyPct = (this.config.easyPct || 60) / 100;
+                        const avgPct = (this.config.avgPct || 30) / 100;
+
+                        let easyCount = Math.round(items * easyPct);
+                        let avgCount = Math.round(items * avgPct);
+                        let diffCount = items - easyCount - avgCount;
+
+                        if (diffCount < 0) {
+                            diffCount = 0;
+                            avgCount = items - easyCount;
+                        }
+
+                        // Determine item placement and count format items for MCQ, T/F, Identification
+                        let rangeStr = "N/A";
+                        let rowMcq = 0;
+                        let rowTf = 0;
+                        let rowIdent = 0;
+
+                        if (items > 0) {
+                            const start = currentPlacementIndex;
+                            const end = currentPlacementIndex + items - 1;
+                            rangeStr = start === end ? `Item ${start}` : `Items ${start}–${end}`;
+
+                            // Check format for each item in range [start...end]
+                            for (let itemNo = start; itemNo <= end; itemNo++) {
+                                if (itemNo <= mcqLimit) {
+                                    rowMcq++;
+                                } else if (itemNo <= tfLimit) {
+                                    rowTf++;
+                                } else {
+                                    rowIdent++;
+                                }
+                            }
+
+                            currentPlacementIndex = end + 1;
+                        }
+
+                        return {
+                            ...a,
+                            allocatedItems: items,
+                            easyItems: easyCount,
+                            avgItems: avgCount,
+                            diffItems: diffCount,
+                            mcqItems: rowMcq,
+                            tfItems: rowTf,
+                            identItems: rowIdent,
+                            itemRange: rangeStr
+                        };
+                    });
+                },
+
+                totalAllocatedItems() {
+                    return this.calculatedMatrix.reduce((sum, r) => sum + r.allocatedItems, 0);
+                },
+
+                matrixTotals() {
+                    return this.calculatedMatrix.reduce((acc, row) => {
+                        acc.easy += row.easyItems;
+                        acc.avg += row.avgItems;
+                        acc.diff += row.diffItems;
+                        acc.mcq += row.mcqItems;
+                        acc.tf += row.tfItems;
+                        acc.ident += row.identItems;
+                        return acc;
+                    }, { easy: 0, avg: 0, diff: 0, mcq: 0, tf: 0, ident: 0 });
+                },
+
+                // Groups generated questions into clean exam sections for student test paper
+                testSections() {
+                    if (this.generatedQuestions.length === 0) return [];
+
+                    const sections = [];
+                    const mcqs = this.generatedQuestions.filter(q => q.format === 'mcq');
+                    const tfs = this.generatedQuestions.filter(q => q.format === 'tf');
+                    const idents = this.generatedQuestions.filter(q => q.format === 'ident');
+
+                    if (mcqs.length > 0) {
+                        sections.push({
+                            title: 'Part I: Multiple Choice',
+                            instruction: 'Read each question carefully. Select the letter corresponding to the correct answer.',
+                            items: mcqs
+                        });
+                    }
+
+                    if (tfs.length > 0) {
+                        sections.push({
+                            title: 'Part II: True or False',
+                            instruction: 'Determine whether each statement is True or False.',
+                            items: tfs
+                        });
+                    }
+
+                    if (idents.length > 0) {
+                        sections.push({
+                            title: 'Part III: Identification',
+                            instruction: 'Identify the term, concept, or answer requested in each item.',
+                            items: idents
+                        });
+                    }
+
+                    return sections;
+                }
+            },
+
+            methods: {
+                syncFormatItemCounts() {
+                    const N = this.config.targetItems;
+                    const mcq = Math.round(N * 0.60);
+                    const tf = Math.round(N * 0.20);
+                    const ident = N - mcq - tf;
+
+                    this.config.mcqCount = mcq;
+                    this.config.tfCount = tf;
+                    this.config.identCount = ident;
+                },
+
+                quickSelectForRevision(itemNum) {
+                    this.revisionItemNum = itemNum;
+                    const el = document.querySelector('.bg-slate-900');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    this.showToast(`Question #${itemNum} selected for revision.`);
+                },
+
+                async reviseSingleQuestion(targetItemNum = null) {
+                    const itemNum = targetItemNum || this.revisionItemNum;
+                    const idx = itemNum - 1;
+
+                    if (idx < 0 || idx >= this.generatedQuestions.length) {
+                        this.showToast('Selected question number is out of range.');
+                        return;
+                    }
+
+                    const currentQ = this.generatedQuestions[idx];
+                    this.isRevisingItem = true;
+                    this.showToast(`Revising Question #${itemNum}...`);
+
+                    const customInst = this.revisionInstruction || 'Rephrase to make it clearer and more engaging.';
+
+                    const systemPrompt = `You are an expert test item writer. Revise and rewrite EXACTLY ONE test item in ${this.config.language} according to teacher feedback.
+
+CURRENT ITEM #${itemNum}:
+- Format: ${currentQ.format}
+- Competency: ${currentQ.competency}
+- Cognitive Level: ${currentQ.cognitiveLevel}
+- Question: "${currentQ.question}"
+
+TEACHER REVISION INSTRUCTIONS:
+"${customInst}"
+
+Return ONLY a single valid JSON object:
+{
+  "itemNum": ${itemNum},
+  "format": "${currentQ.format}",
+  "formatLabel": "${currentQ.formatLabel}",
+  "competency": "${currentQ.competency}",
+  "cognitiveLevel": "${currentQ.cognitiveLevel}",
+  "question": "Revised question string...",
+  "options": ${JSON.stringify(currentQ.options || [])},
+  "correctAnswer": "Correct answer key",
+  "explanation": "Brief rationale"
+}`;
+
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${this.apiKey}`;
+
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: `Revise item #${itemNum} now.` }] }],
+                                systemInstruction: { parts: [{ text: systemPrompt }] }
+                            })
+                        });
+
+                        if (!response.ok) throw new Error('API revision request failed');
+
+                        const data = await response.json();
+                        let textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                        if (textContent) {
+                            textContent = textContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                            const revisedObj = JSON.parse(textContent);
+                            if (revisedObj && revisedObj.question) {
+                                this.generatedQuestions[idx] = revisedObj;
+                                this.showToast(`Question #${itemNum} successfully revised!`);
+                                this.revisionInstruction = '';
+                                this.isRevisingItem = false;
+                                return;
+                            }
+                        }
+                        throw new Error('Unable to parse revised question JSON');
+
+                    } catch (err) {
+                        console.warn('AI Revision fallback applied.', err);
+                        const isFilipino = this.config.language && (this.config.language.includes('Filipino') || this.config.language.includes('Tagalog'));
+                        
+                        this.generatedQuestions[idx].question = isFilipino 
+                            ? `[Nirebisang Tanong #${itemNum} - ${currentQ.cognitiveLevel}] Batay sa sitwasyon: Paano mailalapat ang "${currentQ.competency}"? (${customInst})`
+                            : `[Revised Question #${itemNum} - ${currentQ.cognitiveLevel}] Applied context: How is "${currentQ.competency}" demonstrated? (${customInst})`;
+                        
+                        this.showToast(`Question #${itemNum} rephrased locally.`);
+                    } finally {
+                        this.isRevisingItem = false;
+                    }
+                },
+
+                addCompetencyRow() {
+                    this.competencies.push({
+                        id: Date.now(),
+                        description: '',
+                        days: 3
+                    });
+                },
+
+                removeCompetencyRow(index) {
+                    this.competencies.splice(index, 1);
+                },
+
+                clearCompetencies() {
+                    this.competencies = [];
+                },
+
+                getCompetencyWeight(days) {
+                    if (!this.totalTeachingDays) return '0.00';
+                    return (((Number(days) || 0) / this.totalTeachingDays) * 100).toFixed(2);
+                },
+
+                getCompetencyItemAlloc(index) {
+                    if (!this.calculatedMatrix[index]) return 0;
+                    return this.calculatedMatrix[index].allocatedItems;
+                },
+
+                downloadTOSCSV() {
+                    if (this.calculatedMatrix.length === 0) {
+                        this.showToast('No competencies available to download TOS.');
+                        return;
+                    }
+
+                    const cleanSubject = (this.config.subject || 'Subject').replace(/[^a-zA-Z0-9_-]/g, '_');
+                    const cleanQuarter = (this.config.quarter || 'Exam').replace(/[^a-zA-Z0-9_-]/g, '_');
+                    const filename = `TOS_${cleanSubject}_${cleanQuarter}.csv`;
+
+                    let csvContent = `School Name,${this.config.schoolName || ''}\n`;
+                    csvContent += `Subject,${this.config.subject || ''}\n`;
+                    csvContent += `Grade Level,${this.config.gradeLevel || ''}\n`;
+                    csvContent += `Quarter / Examination,${this.config.quarter || ''}\n`;
+                    csvContent += `Teacher,${this.config.teacherName || ''}\n\n`;
+
+                    // Header row with MCQ, True/False, Identification columns
+                    csvContent += `"Item #","Learning Competency","Days Taught","Weight (%)","Total Items","Easy (${this.config.easyPct}%)","Average (${this.config.avgPct}%)","Difficult (${this.config.diffPct}%)","MCQ Items","True/False Items","Identification Items","Item Placement"\n`;
+
+                    // Data rows
+                    this.calculatedMatrix.forEach((row, idx) => {
+                        const escapedDesc = `"${row.description.replace(/"/g, '""')}"`;
+                        csvContent += `${idx + 1},${escapedDesc},${row.days},${row.weightPct}%,${row.allocatedItems},${row.easyItems},${row.avgItems},${row.diffItems},${row.mcqItems},${row.tfItems},${row.identItems},"${row.itemRange}"\n`;
+                    });
+
+                    // Totals row
+                    csvContent += `TOTAL,"Total across competencies",${this.totalTeachingDays},100.00%,${this.totalAllocatedItems},${this.matrixTotals.easy},${this.matrixTotals.avg},${this.matrixTotals.diff},${this.matrixTotals.mcq},${this.matrixTotals.tf},${this.matrixTotals.ident},"1 - ${this.totalAllocatedItems}"\n`;
+
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    this.showToast(`TOS exported as ${filename}`);
+                },
+
+                showToast(msg) {
+                    this.toastMessage = msg;
+                    setTimeout(() => { this.toastMessage = ''; }, 4000);
+                },
+
+                triggerPrint() {
+                    window.print();
+                },
+
+                async generateExamWithAI() {
+                    if (this.competencies.length === 0) return;
+                    
+                    this.isGenerating = true;
+                    this.showToast(`Generating test paper items in ${this.config.language}...`);
+
+                    const matrixSummary = this.calculatedMatrix.map(m => ({
+                        competency: m.description,
+                        easyItems: m.easyItems,
+                        avgItems: m.avgItems,
+                        diffItems: m.diffItems,
+                        mcqItems: m.mcqItems,
+                        tfItems: m.tfItems,
+                        identItems: m.identItems,
+                        totalItems: m.allocatedItems,
+                        itemRange: m.itemRange
+                    }));
+
+                    const systemPrompt = `You are an expert test creator. Generate a summative assessment in ${this.config.language} with exactly ${this.config.targetItems} items divided into three formats:
+1. Multiple Choice (MCQ): ${this.config.mcqCount} items
+2. True or False: ${this.config.tfCount} items
+3. Identification: ${this.config.identCount} items
+
+TOS MATRIX DISTRIBUTION:
+${JSON.stringify(matrixSummary, null, 2)}
+
+SPECIAL STYLE INSTRUCTIONS:
+"${this.config.specialInstructions}"
+
+CRITICAL REQUIREMENTS:
+- Language: ${this.config.language}
+- First ${this.config.mcqCount} items MUST be "mcq" format.
+- Next ${this.config.tfCount} items MUST be "tf" format.
+- Remaining ${this.config.identCount} items MUST be "ident" format.
+
+Return ONLY a valid JSON array of question objects:
+[
+  {
+    "itemNum": 1,
+    "format": "mcq",
+    "formatLabel": "Multiple Choice",
+    "competency": "Competency statement...",
+    "cognitiveLevel": "Easy",
+    "question": "Question text...",
+    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+    "correctAnswer": "A",
+    "explanation": "Brief rationale"
+  },
+  {
+    "itemNum": 21,
+    "format": "tf",
+    "formatLabel": "True or False",
+    "competency": "Competency statement...",
+    "cognitiveLevel": "Average",
+    "question": "Statement text...",
+    "options": [],
+    "correctAnswer": "TRUE",
+    "explanation": "Brief rationale"
+  },
+  {
+    "itemNum": 26,
+    "format": "ident",
+    "formatLabel": "Identification",
+    "competency": "Competency statement...",
+    "cognitiveLevel": "Difficult",
+    "question": "Prompt text asking for specific term...",
+    "options": [],
+    "correctAnswer": "Exact Term",
+    "explanation": "Brief rationale"
+  }
+]`;
+
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${this.apiKey}`;
+
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: `Generate ${this.config.targetItems} test items strictly as valid JSON.` }] }],
+                                systemInstruction: { parts: [{ text: systemPrompt }] }
+                            })
+                        });
+
+                        if (!response.ok) throw new Error('API request failed');
+
+                        const data = await response.json();
+                        let textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                        if (textContent) {
+                            textContent = textContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                            const parsedItems = JSON.parse(textContent);
+                            if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                                this.generatedQuestions = parsedItems;
+                                this.activeTab = 'exam';
+                                this.showToast('Successfully generated test items with AI!');
+                                this.isGenerating = false;
+                                return;
+                            }
+                        }
+                        throw new Error('Could not parse AI response');
+
+                    } catch (err) {
+                        console.warn('AI generation fallback activated.', err);
+                        this.generateLocalFallbackExam();
+                    } finally {
+                        this.isGenerating = false;
+                    }
+                },
+
+                // Local template generator if offline
+                generateLocalFallbackExam() {
+                    const questions = [];
+                    let itemCounter = 1;
+                    const isFilipino = this.config.language && (this.config.language.includes('Filipino') || this.config.language.includes('Tagalog'));
+
+                    const mcqLimit = Number(this.config.mcqCount) || 0;
+                    const tfLimit = mcqLimit + (Number(this.config.tfCount) || 0);
+
+                    this.calculatedMatrix.forEach((comp) => {
+                        for (let i = 0; i < comp.allocatedItems; i++) {
+                            const itemNum = itemCounter;
+                            
+                            let level = 'Easy';
+                            if (i >= comp.easyItems && i < comp.easyItems + comp.avgItems) level = 'Average';
+                            else if (i >= comp.easyItems + comp.avgItems) level = 'Difficult';
+
+                            let format = 'mcq';
+                            let formatLabel = 'Multiple Choice';
+
+                            if (itemNum > mcqLimit && itemNum <= tfLimit) {
+                                format = 'tf';
+                                formatLabel = 'True or False';
+                            } else if (itemNum > tfLimit) {
+                                format = 'ident';
+                                formatLabel = 'Identification';
+                            }
+
+                            if (format === 'mcq') {
+                                questions.push({
+                                    itemNum: itemNum,
+                                    format: 'mcq',
+                                    formatLabel: 'Multiple Choice',
+                                    competency: comp.description,
+                                    cognitiveLevel: level,
+                                    question: isFilipino 
+                                        ? `[${level}] Alin sa mga sumusunod ang pinaka-angkop na kaisipan kaugnay ng: "${comp.description}"?`
+                                        : `[${level}] Which statement best describes the core principle regarding: "${comp.description}"?`,
+                                    options: [
+                                        isFilipino ? `A) Ito ay batayang pundasyon sa ${this.config.subject}.` : `A) It serves as a foundational concept in ${this.config.subject}.`,
+                                        isFilipino ? `B) Ito ay walang kaugnayan sa tunay na buhay.` : `B) It has no direct practical application in daily scenarios.`,
+                                        isFilipino ? `C) Nag-aapply lamang ito sa mga teoretikal na kalagayan.` : `C) It applies exclusively under controlled theoretical conditions.`,
+                                        isFilipino ? `D) Hindi ito maaring sukatin gamit ang obserbasyon.` : `D) It cannot be empirically verified.`
+                                    ],
+                                    correctAnswer: 'A',
+                                    explanation: isFilipino ? 'Opsyon A ang tamang pahayag.' : 'Option A correctly states the standard principle.'
+                                });
+                            } else if (format === 'tf') {
+                                questions.push({
+                                    itemNum: itemNum,
+                                    format: 'tf',
+                                    formatLabel: 'True or False',
+                                    competency: comp.description,
+                                    cognitiveLevel: level,
+                                    question: isFilipino
+                                        ? `[${level}] TAMA o MALI: Ang kaisipang "${comp.description}" ay mahalaga sa pag-aaral ng ${this.config.subject}.`
+                                        : `[${level}] TRUE or FALSE: The statement regarding "${comp.description}" holds consistent validity in ${this.config.subject}.`,
+                                    options: [],
+                                    correctAnswer: 'TRUE',
+                                    explanation: 'The statement directly supports the subject competency.'
+                                });
+                            } else {
+                                questions.push({
+                                    itemNum: itemNum,
+                                    format: 'ident',
+                                    formatLabel: 'Identification',
+                                    competency: comp.description,
+                                    cognitiveLevel: level,
+                                    question: isFilipino
+                                        ? `[${level}] Tukuyin ang pangunahing terminolohiya o kaisipang inilalarawan ng: "${comp.description}".`
+                                        : `[${level}] Identify the specific term or principle described by: "${comp.description}".`,
+                                    options: [],
+                                    correctAnswer: isFilipino ? 'Pangunahing Konsepto' : 'Core Concept',
+                                    explanation: 'Direct concept identification required by the objective.'
+                                });
+                            }
+
+                            itemCounter++;
+                        }
+                    });
+
+                    this.generatedQuestions = questions;
+                    this.activeTab = 'exam';
+                    this.showToast(`Exam generated locally in ${this.config.language}!`);
+                }
+            },
+
+            mounted() {
+                this.syncFormatItemCounts();
+                this.showToast('ExamCraft TOS Studio ready! Configured with MCQ, True/False, and Identification columns.');
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
